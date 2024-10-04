@@ -1,0 +1,26 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/josue-meran/tato_ws/install/serial/include/**",
+        "/home/josue-meran/tato_ws/install/gazebo_ros2_control/include/**",
+        "/opt/ros/foxy/include/**",
+        "/home/josue-meran/tato_ws/src/diffdrive_arduino/include/**",
+        "/home/josue-meran/tato_ws/src/gazebo_ros2_control/gazebo_ros2_control/include/**",
+        "/home/josue-meran/tato_ws/src/serial/include/**",
+        "/home/josue-meran/tato_ws/src/tato_bot/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}
