@@ -9,7 +9,7 @@ setup(
     version='0.0.0',
     packages=[package_name],
     py_modules=[
-        'articubot_one.laser_scan_filter'
+        # 'articubot_one.laser_scan_filter'
     ],
     data_files=[
         ('share/ament_index/resource_index/packages',
@@ -26,7 +26,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'laser_scan_filter = articubot_one.laser_scan_filter:main',
+            # 'laser_scan_filter = articubot_one.laser_scan_filter:main',
         ],
     },
 )

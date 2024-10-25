@@ -24,6 +24,13 @@ def generate_launch_description():
             parameters=[joy_params, {'use_sim_time': use_sim_time}],
             remappings=[('/cmd_vel','/cmd_vel_joy')]
          )
+    
+    joy_button_action = Node(
+        package='articubot_one',  # Cambia esto por tu paquete
+        executable='joy_button_action',  # Cambia esto por el nombre de tu ejecutable
+        name='joy_button_action',
+        parameters=[{'use_sim_time': use_sim_time}],
+     )
 
     # twist_stamper = Node(
     #         package='twist_stamper',
@@ -41,5 +48,6 @@ def generate_launch_description():
             description='Use sim time if true'),
         joy_node,
         teleop_node,
+        joy_button_action,
         # twist_stamper       
     ])

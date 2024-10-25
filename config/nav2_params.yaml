@@ -181,9 +181,15 @@ local_costmap:
         z_voxels: 16
         max_obstacle_height: 2.0
         mark_threshold: 0
-        observation_sources: scan
+        observation_sources: scan camera_scan
         scan:
           topic: /scan
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True 
+          data_type: "LaserScan"
+        scan:
+          topic: /camera_scan
           max_obstacle_height: 2.0
           clearing: True
           marking: True
