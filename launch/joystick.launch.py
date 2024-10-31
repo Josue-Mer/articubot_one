@@ -26,11 +26,11 @@ def generate_launch_description():
          )
     
     joy_button_action = Node(
-        package='articubot_one',  # Cambia esto por tu paquete
-        executable='joy_button_action',  # Cambia esto por el nombre de tu ejecutable
-        name='joy_button_action',
-        parameters=[{'use_sim_time': use_sim_time}],
-     )
+            package='articubot_one', 
+            executable='joy_button_action', 
+            name='joy_button_action',
+            parameters=[{'use_sim_time': use_sim_time}],
+         )
 
     # twist_stamper = Node(
     #         package='twist_stamper',

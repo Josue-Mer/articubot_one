@@ -29,6 +29,8 @@ setup(
     entry_points={
         'console_scripts': [
             'joy_button_action = articubot_one.joy_button_action:main',
+            'laser_scan_filter = articubot_one.laser_scan_filter:main',
+            'position_follower = articubot_one.position_follower:main',
         ],
     },
 )

@@ -67,6 +67,17 @@ def generate_launch_description():
         arguments=["joint_broad"],
     )
 
+    laser_scan_filter = Node(
+            package='articubot_one',
+            executable='laser_scan_filter', 
+            name='laser_scan_filter',
+            parameters=[
+                {'range_min': 0.15},
+                {'range_max': 12.0},
+                {'angle_filter_ranges_deg': [31.0, 41.5,-36.0, -31.5]}
+            ],
+         )
+
 
     # Code for delaying a node (I haven't tested how effective it is)
     # 
@@ -94,5 +105,6 @@ def generate_launch_description():
         gazebo,
         spawn_entity,
         diff_drive_spawner,
-        joint_broad_spawner
+        joint_broad_spawner,
+        laser_scan_filter
     ])

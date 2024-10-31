@@ -4,9 +4,7 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
 
-    return LaunchDescription([
-
-        Node(
+    rplidar_composition = Node(
             package='rplidar_ros',
             executable='rplidar_composition',
             output='screen',
@@ -16,5 +14,21 @@ def generate_launch_description():
                 'angle_compensate': True,
                 'scan_mode': 'Standard'
             }]
-        )
+         )
+    
+    laser_scan_filter = Node(
+            package='articubot_one',
+            executable='laser_scan_filter', 
+            name='laser_scan_filter',
+            parameters=[
+                {'range_min': 0.15},
+                {'range_max': 12.0},
+                {'angle_filter_ranges_deg': [31.0, 41.5,-36.0, -31.5]}
+            ],
+         )
+    
+
+    return LaunchDescription([
+        rplidar_composition,
+        laser_scan_filter
     ])

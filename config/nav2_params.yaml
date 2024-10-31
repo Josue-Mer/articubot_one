@@ -56,7 +56,7 @@ bt_navigator:
     enable_groot_monitoring: True
     groot_zmq_publisher_port: 1666
     groot_zmq_server_port: 1667
-    default_bt_xml_filename: "navigate_w_replanning_and_recovery.xml"
+    default_bt_xml_filename: "follow_point.xml"
     plugin_lib_names:
     - nav2_compute_path_to_pose_action_bt_node
     - nav2_follow_path_action_bt_node
@@ -181,19 +181,20 @@ local_costmap:
         z_voxels: 16
         max_obstacle_height: 2.0
         mark_threshold: 0
-        observation_sources: scan camera_scan
+        observation_sources: scan 
+        # camera_scan
         scan:
           topic: /scan
           max_obstacle_height: 2.0
           clearing: True
           marking: True 
           data_type: "LaserScan"
-        scan:
-          topic: /camera_scan
-          max_obstacle_height: 2.0
-          clearing: True
-          marking: True
-          data_type: "LaserScan"
+        # scan:
+        #   topic: /camera_scan
+        #   max_obstacle_height: 2.0
+        #   clearing: True
+        #   marking: True
+        #   data_type: "LaserScan"
       static_layer:
         map_subscribe_transient_local: True
       always_send_full_costmap: True
