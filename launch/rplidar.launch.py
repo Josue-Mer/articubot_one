@@ -23,7 +23,7 @@ def generate_launch_description():
             parameters=[
                 {'range_min': 0.15},
                 {'range_max': 12.0},
-                {'angle_filter_ranges_deg': [31.0, 41.5,-36.0, -31.5]}
+                {'angle_filter_ranges_deg': [0.0, 0.0]}
             ],
          )
     
