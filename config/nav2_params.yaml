@@ -30,7 +30,7 @@ amcl:
     save_pose_rate: 0.5
     sigma_hit: 0.2
     tf_broadcast: true
-    transform_tolerance: 1.0
+    transform_tolerance: 5.0
     update_min_a: 0.2
     update_min_d: 0.25
     z_hit: 0.5
@@ -52,7 +52,7 @@ bt_navigator:
     use_sim_time: True
     global_frame: map
     robot_base_frame: base_link
-    odom_topic: /odom
+    odom_topic: /odometry/filtered
     enable_groot_monitoring: True
     groot_zmq_publisher_port: 1666
     groot_zmq_server_port: 1667
@@ -104,14 +104,14 @@ controller_server:
     # Goal checker parameters
     goal_checker:
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.25
-      yaw_goal_tolerance: 0.3
+      xy_goal_tolerance: 0.1
+      yaw_goal_tolerance: 0.349066 #0.349066 for 20 degrees             0.523599 for 30 degrees             0.785398 for 45 degrees
       stateful: True
     # DWB parameters
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"
       debug_trajectory_details: True
-      min_vel_x: -0.8 #0.75
+      min_vel_x: 0.0 #0.75
       min_vel_y: 0.0
       max_vel_x: 0.8
       max_vel_y: 0.8
@@ -133,7 +133,7 @@ controller_server:
       sim_time: 1.7
       linear_granularity: 0.05
       angular_granularity: 0.025
-      transform_tolerance: 0.2
+      transform_tolerance: 5.0
       xy_goal_tolerance: 0.3
       trans_stopped_velocity: 0.25
       short_circuit_trajectory_evaluation: True
@@ -157,21 +157,32 @@ controller_server_rclcpp_node:
 local_costmap:
   local_costmap:
     ros__parameters:
-      update_frequency: 5.0
-      publish_frequency: 2.0
+      update_frequency: 10.0
+      publish_frequency: 10.0
       global_frame: odom
       robot_base_frame: base_link
       use_sim_time: True
       rolling_window: true
-      width: 3
-      height: 3
+      width: 10
+      height: 5
       resolution: 0.05
       robot_radius: 0.22
-      plugins: ["voxel_layer", "inflation_layer"]
+      plugins: ["voxel_layer", "obstacle_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
         inflation_radius: 0.55
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        observation_sources: scan
+        obstacle_keep_time: 0.2
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: False
+          data_type: "LaserScan"
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
         enabled: True
@@ -181,8 +192,8 @@ local_costmap:
         z_voxels: 16
         max_obstacle_height: 2.0
         mark_threshold: 0
-        observation_sources: scan 
-        # camera_scan
+        observation_sources: scan # camera_scan
+
         scan:
           topic: /scan
           max_obstacle_height: 2.0
@@ -221,11 +232,12 @@ global_costmap:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: True
         observation_sources: scan
+        obstacle_keep_time: 0.2
         scan:
           topic: /scan
           max_obstacle_height: 2.0
           clearing: True
-          marking: True
+          marking: False
           data_type: "LaserScan"
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
@@ -284,7 +296,7 @@ recoveries_server:
       plugin: "nav2_recoveries/Wait"
     global_frame: odom
     robot_base_frame: base_link
-    transform_timeout: 0.1
+    transform_timeout: 5.0
     use_sim_time: true
     simulate_ahead_time: 2.0
     max_rotational_vel: 1.32

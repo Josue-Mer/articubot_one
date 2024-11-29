@@ -26,10 +26,8 @@ class LaserScanFilter(Node):
         ]
 
         # Subscriber and Publisher
-        self.scan_subscriber = self.create_subscription(
-            LaserScan, '/scan', self.scan_callback, 10)
-        self.scan_publisher = self.create_publisher(
-            LaserScan, '/scan_filtered', 10)
+        self.scan_subscriber = self.create_subscription(LaserScan, '/scan', self.scan_callback, 10)
+        self.scan_publisher = self.create_publisher(LaserScan, '/scan_filtered', 10)
 
     def scan_callback(self, msg):
         filtered_ranges = []

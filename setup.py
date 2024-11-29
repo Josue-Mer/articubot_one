@@ -31,6 +31,8 @@ setup(
             'joy_button_action = articubot_one.joy_button_action:main',
             'laser_scan_filter = articubot_one.laser_scan_filter:main',
             'position_follower = articubot_one.position_follower:main',
+            'Nodo_tracking = articubot_one.Nodo_tracking:main',
+            'oakd_publisher = articubot_one.oakd_publisher:main',
         ],
     },
 )

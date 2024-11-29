@@ -9,6 +9,7 @@ Panels:
         - /TF1/Frames1
         - /LaserScan1
         - /LaserScan2
+        - /Odometry2/Shape1
       Splitter Ratio: 0.5
     Tree Height: 1492
   - Class: rviz_common/Selection
@@ -46,19 +47,58 @@ Visualization Manager:
       Reference Frame: <Fixed Frame>
       Value: true
     - Class: rviz_default_plugins/TF
-      Enabled: false
+      Enabled: true
       Frame Timeout: 15
       Frames:
         All Enabled: false
+        base_footprint:
+          Value: true
+        base_link:
+          Value: true
+        camera_link:
+          Value: true
+        camera_link_optical:
+          Value: true
+        chassis:
+          Value: true
+        laser_frame:
+          Value: true
+        left_caster_wheel:
+          Value: true
+        left_wheel:
+          Value: true
+        odom:
+          Value: true
+        right_caster_wheel:
+          Value: true
+        right_wheel:
+          Value: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: false
       Tree:
-        {}
+        odom:
+          base_link:
+            base_footprint:
+              {}
+            chassis:
+              camera_link:
+                camera_link_optical:
+                  {}
+              laser_frame:
+                {}
+              left_caster_wheel:
+                {}
+              right_caster_wheel:
+                {}
+            left_wheel:
+              {}
+            right_wheel:
+              {}
       Update Interval: 0
-      Value: false
+      Value: true
     - Alpha: 1
       Class: rviz_default_plugins/RobotModel
       Collision Enabled: false
@@ -238,9 +278,9 @@ Visualization Manager:
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 0
+      Max Intensity: 15
       Min Color: 0; 0; 0
-      Min Intensity: 0
+      Min Intensity: 4
       Name: LaserScan
       Position Transformer: XYZ
       Selectable: true
@@ -252,10 +292,86 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /scan_filtered
+        Value: /scan
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
+    - Angle Tolerance: 0.10000000149011612
+      Class: rviz_default_plugins/Odometry
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.30000001192092896
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
+        Value: true
+      Enabled: false
+      Keep: 100
+      Name: Odometry
+      Position Tolerance: 0.10000000149011612
+      Shape:
+        Alpha: 1
+        Axes Length: 1
+        Axes Radius: 0.10000000149011612
+        Color: 255; 25; 0
+        Head Length: 0.30000001192092896
+        Head Radius: 0.10000000149011612
+        Shaft Length: 1
+        Shaft Radius: 0.05000000074505806
+        Value: Arrow
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /odom
+      Value: false
+    - Angle Tolerance: 0.10000000149011612
+      Class: rviz_default_plugins/Odometry
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.30000001192092896
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
+        Value: true
+      Enabled: false
+      Keep: 100
+      Name: Odometry
+      Position Tolerance: 0.10000000149011612
+      Shape:
+        Alpha: 1
+        Axes Length: 1
+        Axes Radius: 0.10000000149011612
+        Color: 92; 53; 102
+        Head Length: 0.30000001192092896
+        Head Radius: 0.10000000149011612
+        Shaft Length: 1
+        Shaft Radius: 0.05000000074505806
+        Value: Arrow
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /odometry/filtered
+      Value: false
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -299,25 +415,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 5.219413757324219
+      Distance: 4.581826686859131
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.42343106865882874
-        Y: -0.4052656888961792
-        Z: 0.20888648927211761
+        X: 0.20375151932239532
+        Y: -0.011106018908321857
+        Z: 0.27926719188690186
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.6453977227210999
+      Pitch: 0.24539689719676971
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 2.080394983291626
+      Yaw: 1.0653990507125854
     Saved: ~
 Window Geometry:
   Displays:
