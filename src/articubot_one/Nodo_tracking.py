@@ -1,31 +1,27 @@
-#!/usr/bin/env python3.11
-
-from pathlib import Path
 import cv2
 import depthai as dai
-import time
 import blobconverter
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String
+from std_msgs.msg import UInt32
+from custom_msgs.msg import TrackedObject
+import time
 
-# Constants
+# # Constants
 SHOW_PREVIEW = True  # Set to False to disable preview on the computer
 SAVE_INTERVAL = 0.2  # Save image at 5 fps
 IMG_MAP_PATH = '/tmp/img_camera.png'
 DATA_FILE_PATH = '/tmp/person_track_data.txt'
 
-print("FLAG TRACKER (CAMERA)")
+print("Person Tracker")
 
 class FlagTracker(Node):
-
     def __init__(self):
         super().__init__('flag_tracker')
-        self.publisher_ = self.create_publisher(String, 'flagdata', 10)
+        self.publisher_ = self.create_publisher(TrackedObject, 'persondata', 10)
         self.timer_period = 0.05  # seconds
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
-        self.data_to_send = ""
-        self.found = False  # Variable de estado
+        self.data_to_send = None
 
         # Argument parsing and pipeline creation
         self.declare_parameter('nnPath', '')
@@ -46,6 +42,7 @@ class FlagTracker(Node):
         # Create pipeline
         self.pipeline = dai.Pipeline()
         self.setup_pipeline()
+    
 
     def setup_pipeline(self):
         # Define sources and outputs
@@ -115,16 +112,24 @@ class FlagTracker(Node):
         spatialDetectionNetwork.out.link(objectTracker.inputDetections)
         stereo.depth.link(spatialDetectionNetwork.inputDepth)
 
-    def send_data(self, data):
-        if data:
-            msg = String()
-            msg.data = data
+    def send_data(self, id, point):
+        """Publica la posición del punto junto con el ID."""
+        if point:
+            msg = TrackedObject()
+            msg.header.stamp = self.get_clock().now().to_msg()  # Tiempo actual
+            msg.header.frame_id = 'camera_link'  # Cambia según el frame
+            msg.id = UInt32(data=id)  # Asignar el ID
+            msg.point.x = point[0]
+            msg.point.y = point[1]
+            msg.point.z = point[2]
             self.publisher_.publish(msg)
-            self.data_to_send = data
+            self.data_to_send = point
 
     def timer_callback(self):
         if self.data_to_send:
-            self.publisher_.publish(String(data=self.data_to_send))
+            id, (x, y, z) = self.data_to_send
+            self.send_data(id, (x, y, z))
+
 
     def start_tracking(self):
         with dai.Device(self.pipeline) as device:
@@ -151,7 +156,7 @@ class FlagTracker(Node):
                 frame = imgFrame.getCvFrame()
                 trackletsData = track.tracklets
                 found_target = False
-                data_to_publish = ""
+
                 for t in trackletsData:
                     roi = t.roi.denormalize(frame.shape[1], frame.shape[0])
                     x1 = int(roi.topLeft().x)
@@ -159,43 +164,43 @@ class FlagTracker(Node):
                     x2 = int(roi.bottomRight().x)
                     y2 = int(roi.bottomRight().y)
 
-                    try:
-                        label = labelMap[t.label]
-                    except:
-                        label = t.label
-
                     if t.status.name == "TRACKED":
-                        if not self.found:
-                            self.found = True
+                        # Extraer las coordenadas 3D
+                        id = t.id  # ID del objeto
+                        x = t.spatialCoordinates.x / 1000  # Convertir a metros
+                        y = t.spatialCoordinates.y / 1000
+                        z = t.spatialCoordinates.z / 1000
+
+                        # Publicar el punto y el ID
+                        self.send_data(id, (x, y, z))
                         found_target = True
-                        data_to_publish += f"X:{t.spatialCoordinates.x},Y:{t.spatialCoordinates.y},Z:{t.spatialCoordinates.z};"
 
-                        cv2.putText(frame, str(label), (x1 + 10, y1 + 20), cv2.FONT_HERSHEY_TRIPLEX, 0.45, (255, 255, 0))
-                        cv2.putText(frame, f"ID: {[t.id]}", (x1 + 10, y1 + 35), cv2.FONT_HERSHEY_TRIPLEX, 0.45, (255, 255, 0))
-                        cv2.putText(frame, t.status.name, (x1 + 10, y1 + 50), cv2.FONT_HERSHEY_TRIPLEX, 0.45, (255, 255, 0))
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), color, cv2.FONT_HERSHEY_SIMPLEX)
+                        # Dibujar en el frame
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                        cv2.putText(frame, f"ID: {id}", (x1 + 10, y1 + 20), cv2.FONT_HERSHEY_TRIPLEX, 0.45, (255, 255, 0))
+                        cv2.putText(frame, f"Status: {t.status.name}", (x1 + 10, y1 + 35), cv2.FONT_HERSHEY_TRIPLEX, 0.5, (255, 255, 0))
+                        cv2.putText(frame, f"X: {x:.2f} m", (x1 + 10, y1 + 50), cv2.FONT_HERSHEY_TRIPLEX, 0.45, (255, 255, 0))
+                        cv2.putText(frame, f"Y: {y:.2f} m", (x1 + 10, y1 + 65), cv2.FONT_HERSHEY_TRIPLEX, 0.45, (255, 255, 0))
+                        cv2.putText(frame, f"Z: {z:.2f} m", (x1 + 10, y1 + 80), cv2.FONT_HERSHEY_TRIPLEX, 0.45, (255, 255, 0))
 
-                        cv2.putText(frame, f"X: {int(t.spatialCoordinates.x) / 1000} m", (x1 + 10, y1 + 65), cv2.FONT_HERSHEY_TRIPLEX, 0.45, (255, 255, 0))
-                        cv2.putText(frame, f"Y: {int(t.spatialCoordinates.y) / 1000} m", (x1 + 10, y1 + 80), cv2.FONT_HERSHEY_TRIPLEX, 0.45, (255, 255, 0))
-                        cv2.putText(frame, f"Z: {int(t.spatialCoordinates.z) / 1000} m", (x1 + 10, y1 + 95), cv2.FONT_HERSHEY_TRIPLEX, 0.45, (255, 255, 0))
+                        print(f"Tracked @ ID: {id} | X: {x:.2f} m | Y: {y:.2f} m | Z: {z:.2f} m")
 
-                        print("Tracked @: X: " + str(int(t.spatialCoordinates.x) / 1000) + "m | Y: " + str(int(t.spatialCoordinates.y) / 1000) + "m | Z: " + str(int(t.spatialCoordinates.z) / 1000) + "m")
-                if found_target:
-                    self.send_data(data_to_publish.rstrip(";"))
-                else:
-                    self.data_to_send = ""
+                if not found_target:
+                    self.data_to_send = None
 
-                cv2.putText(frame, "NN fps: {:.2f}".format(fps), (2, frame.shape[0] - 4), cv2.FONT_HERSHEY_TRIPLEX, 0.4, color)
+                # Mostrar FPS en el frame
+                cv2.putText(frame, "NN fps: {:.2f}".format(fps), (10, frame.shape[0] - 10), cv2.FONT_HERSHEY_TRIPLEX, 0.4, color) #(255, 255, 255), 1
 
-                # Save the frame to a file at 5 fps
+                # Guardar la imagen a 5 FPS
                 if current_time - last_save_time >= SAVE_INTERVAL:
                     cv2.imwrite(IMG_MAP_PATH, frame)
                     last_save_time = current_time
 
+                # Mostrar el preview si está habilitado
                 if SHOW_PREVIEW:
-                    cv2.imshow("tracker", frame)
+                    cv2.imshow("Object Tracker", frame)
 
-                if cv2.waitKey(1) == 27:
+                if cv2.waitKey(1) == 27:  # Presionar ESC para salir
                     break
 
 def main(args=None):

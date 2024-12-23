@@ -1,43 +1,22 @@
 <?xml version="1.0"?>
-<robot xmlns:xacro="http://www.ros.org/wiki/xacro" >
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
 
     <joint name="imu_joint" type="fixed">
-        <parent link="camera_link"/>
-        <child link="imu_frame"/>
-        <origin xyz="0.32 0 0.175" rpy="0 0 0"/> <!---${pi/2}-->
+        <parent link="camera_link"/> 
+        <child link="imu_link"/> 
+        <origin xyz="0 0 0" rpy="0 0 0"/>
     </joint>
 
-    <link name="imu_frame"/>
 
 
-    <gazebo reference="imu_frame">
-        <material>Gazebo/Gray</material>
-
-        <sensor name="imu" type="ray">
-            <pose> 0 0 0 0 0 0 </pose>
-            <visualize>false</visualize>
-            <update_rate>10</update_rate>
-            <ray>
-                <scan>
-                    <horizontal>
-                        <samples>360</samples>
-                        <min_angle>-3.14</min_angle>
-                        <max_angle>3.14</max_angle>
-                    </horizontal>
-                </scan>
-                <range>
-                    <min>0.3</min>
-                    <max>12</max>
-                </range>
-            </ray>
-            <plugin name="laser_controller" filename="libgazebo_ros_ray_sensor.so">
-                <ros>
-                    <argument>~/out:=scan</argument>
-                </ros>
-                <output_type>sensor_msgs/LaserScan</output_type>
-                <frame_name>laser_frame</frame_name>
-            </plugin>
-        </sensor>
-    </gazebo>
+    <link name="imu_link">
+        <visual>
+            <geometry>
+                <box size="0.017 0.09 0.027"/>
+            </geometry>
+            <material name="yellow"/>
+        </visual>
+    </link>
 
 </robot>
