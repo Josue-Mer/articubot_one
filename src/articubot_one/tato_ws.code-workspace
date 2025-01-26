@@ -1,0 +1,49 @@
+{
+    "folders": [
+        {
+            "path": "../../../.."
+        },
+        {
+            "name": "micro-ros",
+            "path": "../../../../../Documents/PlatformIO/Projects/micro-ros"
+        }
+    ],
+    "settings": {
+        "python.autoComplete.extraPaths": [
+            "/home/josue-meran/tato_ws/build/tf_transformations",
+            "/home/josue-meran/tato_ws/install/tf_transformations/lib/python3.8/site-packages",
+            "/home/josue-meran/tato_ws/install/dwb_msgs/lib/python3.8/site-packages",
+            "/home/josue-meran/tato_ws/install/nav_2d_msgs/lib/python3.8/site-packages",
+            "/home/josue-meran/tato_ws/install/nav2_msgs/lib/python3.8/site-packages",
+            "/home/josue-meran/tato_ws/build/nav2_gazebo_spawner",
+            "/home/josue-meran/tato_ws/install/nav2_gazebo_spawner/lib/python3.8/site-packages",
+            "/home/josue-meran/tato_ws/install/nav2_common/lib/python3.8/site-packages",
+            "/home/josue-meran/tato_ws/build/my_oakd_launch",
+            "/home/josue-meran/tato_ws/install/my_oakd_launch/lib/python3.8/site-packages",
+            "/home/josue-meran/tato_ws/build/joy_tester",
+            "/home/josue-meran/tato_ws/install/joy_tester/lib/python3.8/site-packages",
+            "/home/josue-meran/tato_ws/build/articubot_one/src",
+            "/home/josue-meran/tato_ws/install/articubot_one/lib/python3.8/site-packages",
+            "/home/josue-meran/tato_ws/install/custom_msgs/lib/python3.8/site-packages",
+            "/opt/ros/foxy/lib/python3.8/site-packages"
+        ],
+        "python.analysis.extraPaths": [
+            "/home/josue-meran/tato_ws/build/tf_transformations",
+            "/home/josue-meran/tato_ws/install/tf_transformations/lib/python3.8/site-packages",
+            "/home/josue-meran/tato_ws/install/dwb_msgs/lib/python3.8/site-packages",
+            "/home/josue-meran/tato_ws/install/nav_2d_msgs/lib/python3.8/site-packages",
+            "/home/josue-meran/tato_ws/install/nav2_msgs/lib/python3.8/site-packages",
+            "/home/josue-meran/tato_ws/build/nav2_gazebo_spawner",
+            "/home/josue-meran/tato_ws/install/nav2_gazebo_spawner/lib/python3.8/site-packages",
+            "/home/josue-meran/tato_ws/install/nav2_common/lib/python3.8/site-packages",
+            "/home/josue-meran/tato_ws/build/my_oakd_launch",
+            "/home/josue-meran/tato_ws/install/my_oakd_launch/lib/python3.8/site-packages",
+            "/home/josue-meran/tato_ws/build/joy_tester",
+            "/home/josue-meran/tato_ws/install/joy_tester/lib/python3.8/site-packages",
+            "/home/josue-meran/tato_ws/build/articubot_one/src",
+            "/home/josue-meran/tato_ws/install/articubot_one/lib/python3.8/site-packages",
+            "/home/josue-meran/tato_ws/install/custom_msgs/lib/python3.8/site-packages",
+            "/opt/ros/foxy/lib/python3.8/site-packages"
+        ]
+    }
+}

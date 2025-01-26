@@ -2,7 +2,6 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Point, PointStamped, PoseStamped
 from tf2_geometry_msgs import do_transform_point
-from std_msgs.msg import UInt32
 import rclpy.time
 from std_msgs.msg import Bool
 from tf2_ros import TransformListener, Buffer
@@ -13,7 +12,7 @@ from geometry_msgs.msg import Twist
 import math
 from custom_msgs.msg import TrackedObject
 from colored import fore, style
-from collections import defaultdict
+from collections import defaultdict, deque
 
 
 class PositionFollower(Node):
@@ -24,13 +23,14 @@ class PositionFollower(Node):
         # Publishers
         self.status_publisher_ = self.create_publisher(Bool, '/follower_status', 10)
         self.goal_pose_publisher_ = self.create_publisher(PoseStamped, '/goal_pose', 10)
-        self.cmd_vel_publisher = self.create_publisher(Twist, '/cmd_vel_joy', 10)
+        self.cmd_vel_publisher = self.create_publisher(Twist, '/cmd_vel_tracker', 10)
 
 
         # Subscriptions
-        self.laser_subscription = self.create_subscription(LaserScan, '/scan', self.callback_laser_scan, 10)
-        self.camera_subscription = self.create_subscription(TrackedObject, '/persondata', self.callback_camera_position, 10)
+        self.laser_subscription = self.create_subscription(LaserScan, '/scan_filtered', self.callback_laser_scan, 10)
+        self.camera_subscription = self.create_subscription(TrackedObject, '/person_data', self.callback_camera_position, 10)
         self.uwb_subscription = self.create_subscription(Point, '/uwb_position', self.callback_uwb_position, 10)
+        self.tag_status_subscription = self.create_subscription(Bool, '/tag_status', self.callback_tag_status, 10)
 
         # Transform buffer and listener
         self.tf_buffer = Buffer(rclpy.duration.Duration(seconds=5.0))
@@ -44,17 +44,31 @@ class PositionFollower(Node):
         # Parameters and state  
         # self.status_timer = self.create_timer(0.5, self.publish_status(True))
         self.last_goal_position = None
-        self.acceptable_distance = 3.0
-        self.proximity_threshold = 0.5  # Threshold of proximity to the target
+        self.acceptable_distance = 4.0 # Max distance for LIDAR points
+        self.proximity_threshold = 0.2  # Threshold of proximity to the target
         self.current_uwb_position = None  # Stores the most recent UWB position
-        self.camera_positions = defaultdict(list)  # Save positions by ID # Store the most recent camera position by ID
-        self.lidar_ang_range = 0.61  # LiDAR positive and negative viewing range, ±35°
+        self.lidar_ang_range = 45  # LiDAR positive and negative viewing range, ±45°
         self.target_id = 0  # The initial target ID
         self.navigation_distance_threshold = 0.5
+        self.tag_status = None
+        
+        self.aligned = False  # Tracks alignment status
+        self.no_match_start_time = None  # Tracks when "no valid match" state begins
+        self.rotation_active = False    # Tracks if rotation for searching is active
+        self.rotation_threshold = 2.0  # Time threshold to initiate rotation (in seconds)
+        self.camera_rotate = False  # Tracks the camera rotation status
+        self.alignment_threshold = 0.3  # Tolerable range to keep aligned
+
+        self.tag_off_time = None  # Tracks the time when the tag is off
+        self.tag_clean_threshold = 1.0  # Time threshold to clean tracking variables (in seconds)
+
+        # History for prediction
+        self.goal_history = deque(maxlen=5)  # Store recent navigation points
+        self.prediction_factor = 0.5  # Factor for weighted prediction
+        self.camera_positions = defaultdict(list)  # Save positions by ID # Store the most recent camera position by ID
 
 
         self.get_logger().info(f"{fore.LIGHT_MAGENTA}PositionFollower node initialized.{style.RESET}\n")
-        # self.get_logger().info(f"{fore.LIGHT_YELLOW}Puntos: \n{lidar_points}{style.RESET}\n")
 
 
 
@@ -65,6 +79,10 @@ class PositionFollower(Node):
         """Processes the position of the UWB sensor and validates the filtered LIDAR points."""
         self.current_uwb_position = point_msg  # Store the most recent UWB position
 
+        if not self.tag_status:
+            self.get_logger().warning("No tag detected. Skipping validation.")
+            return
+        
 
         if not hasattr(self, 'lidar_points') or not self.lidar_points:
             self.get_logger().warning("No LIDAR points available. Skipping validation.")
@@ -79,21 +97,17 @@ class PositionFollower(Node):
 
         if not valid_points:
             self.get_logger().warning("No LIDAR points align with UWB data.")
+            self.handle_no_match()
             return
         
         # Validate with the camera
+        if not self.camera_rotate:
+            self.no_match_start_time = None
+            self.stop_rotation()
+
         best_match = None
         min_distance = float('inf')
 
-        # if self.camera_position:
-        #     valid_points = [
-        #         p for p in valid_points
-        #         if abs(p.x - self.camera_position.x) <= self.proximity_threshold and
-        #         abs(p.y - self.camera_position.y) <= self.proximity_threshold
-        #     ]
-        #     if not valid_points:
-        #         self.get_logger().warning("No LIDAR points align with camera data.")
-        #         return
 
         for person_id, points in self.camera_positions.items():
 
@@ -104,24 +118,32 @@ class PositionFollower(Node):
 
                     if distance < min_distance:
                         min_distance = distance
-                        best_match = (person_id, lidar_point)
+                        best_match = (person_id, camera_point)
 
         
         if best_match:
+            # Reset rotation tracking and stop rotation
+            self.camera_rotate = False
+            self.no_match_start_time = None
+            self.stop_rotation()
+
             self.target_id, closest_point = best_match
-            self.align_robot_with_camera(self.camera_positions[self.target_id][-1])
+            if abs(self.camera_positions[self.target_id][-1].y) > self.alignment_threshold:
+                self.align_robot_with_camera(self.camera_positions[self.target_id][-1])
 
-             # Seleccionar el punto más cercano al UWB
-            # closest_point = min(
-            #     better_points,
-            #     key=lambda point: self.calculate_distance(point, self.current_uwb_position) 
-            # )
+            else:
+                self.aligned = True
 
-            self.send_new_goal(closest_point)
-            self.get_logger().info(f"{fore.LIGHT_CYAN}Tracking target ID: {self.target_id}{style.RESET}\n")
+            if self.aligned:
+                # Predict position based on history
+                predicted_goal = self.predict_goal_position(closest_point)
+                self.send_new_goal(predicted_goal)
+                self.get_logger().info(f"{fore.LIGHT_CYAN}Tracking target ID: {self.target_id}{style.RESET}\n")
+            else:
+                self.get_logger().info("Waiting for alignment before sending new goal.")
         else:
-            self.get_logger().warning("No valid match between camera and LIDAR points.")
-            return
+            self.handle_no_match()
+            self.camera_rotate = True
     
 
 
@@ -133,9 +155,15 @@ class PositionFollower(Node):
         angle_increment = scan_msg.angle_increment
         ranges = scan_msg.ranges
         self.lidar_points = []
+        self.collision_points = []
 
         for i, r in enumerate(ranges):
             angle = angle_min + i * angle_increment
+
+            if 0 < r <= self.acceptable_distance:
+                x_collision = r * math.cos(math.radians(angle))
+                y_collision = r * math.sin(math.radians(angle))
+                self.collision_points.append(Point(x=x_collision, y=y_collision, z=0.0))
 
             # Filter by angular range
             if -self.lidar_ang_range <= angle <= self.lidar_ang_range and 0 < r <= self.acceptable_distance:
@@ -158,16 +186,43 @@ class PositionFollower(Node):
 
         person_id = int(camera_msg.id.data)
 
+        # Set flag to indicate new data
+        self.new_camera_data = True
+
         # Save the detected position in the list associated with the ID
         self.camera_positions[person_id].append(camera_point)
 
         # Limit position history by ID (optional)
-        if len(self.camera_positions[person_id]) > 10:
+        if len(self.camera_positions[person_id]) > 5:
             self.camera_positions[person_id].pop(0)
 
-    
-    
+        # Clear positions of other IDs if the target ID is known
+        if self.target_id and person_id != self.target_id:
+            self.camera_positions.pop(person_id, None)
 
+
+    
+    def callback_tag_status(self, status):
+        """Processes the status of the tag detection."""
+        self.tag_status = status.data
+        
+        if not self.tag_status:
+            # If the tag is off, start or update the timer
+            if self.tag_off_time is None:
+                self.tag_off_time = self.get_clock().now()
+            else:
+                elapsed_time = (self.get_clock().now() - self.tag_off_time).nanoseconds / 1e9
+                if elapsed_time >= self.tag_clean_threshold:
+                    self.clean_tracking_variables()
+                    self.get_logger().info(f"{fore.LIGHT_RED}Tag status is false. Cancelling all navigation goals.{style.RESET}")
+                    self.cancel_all_goals()
+                    self.tag_off_time = None  # Restart to avoid repetitive cleaning
+        else:
+            # If the tag is active, reset the timer
+            self.tag_off_time = None
+            
+
+    
     ### NAVIGATION
 
     def send_new_goal(self, point_msg):
@@ -176,11 +231,6 @@ class PositionFollower(Node):
             distance_to_goal = self.calculate_distance(self.last_goal_position, point_msg)
             if distance_to_goal <= self.proximity_threshold:
                 return  # Do not send new objectives if we are close to the last one
-
-        # Check if the distance to the target is greater than the threshold
-        if distance_to_goal <= self.navigation_distance_threshold:
-            self.get_logger().info(f"{fore.LIGHT_RED}Goal is too close (within {self.navigation_distance_threshold} meters). Not sending new goal.{style.RESET}\n")
-            return  # Do not send the target if it is within the distance threshold
         
         robot_position = self.transform_to_map_frame(Point(x= 0.0, y= 0.0, z= 0.0))
 
@@ -209,36 +259,59 @@ class PositionFollower(Node):
 
     ### UTILITIES
 
+    def predict_goal_position(self, current_point):
+        """Predicts the next position based on history and current data."""
+        self.goal_history.append(current_point)
+        if len(self.goal_history) < 2:
+            return current_point
+        dx = self.goal_history[-1].x - self.goal_history[-2].x
+        dy = self.goal_history[-1].y - self.goal_history[-2].y
+        predicted_x = self.goal_history[-1].x + dx * self.prediction_factor
+        predicted_y = self.goal_history[-1].y + dy * self.prediction_factor
+        return Point(x=predicted_x, y=predicted_y, z=0.0)
+    
+
+
     def align_robot_with_camera(self, camera_point):
         """Align the robot to the target using the camera's y position."""
-        if camera_point is None:
-            self.get_logger().warning("Camera position not available. Skipping alignment.")
-            return
 
-        # Keep the target centered within a range of values ​​and
-        alignment_threshold = 0.3  # Tolerable range to keep aligned
-        y_offset = camera_point.y  # y of camera → lateral alignment
+        # Try to align with the camera
+        if self.target_id in self.camera_positions and self.camera_positions[self.target_id]:
 
-        if abs(y_offset) > alignment_threshold:
-            # Calculate angular velocity
-            angular_velocity = -0.7 if y_offset > 0 else 0.7  # Negative if y is positive, positive if y is negative
-            
-            # Create and publish the Twist message
-            twist_msg = Twist()
-            twist_msg.angular.z = angular_velocity
-            twist_msg.linear.x = 0.0  # Do not modify the linear speed
-            self.cmd_vel_publisher.publish(twist_msg)
+            # Use the last camera point associated with the current ID
+            camera_point = self.camera_positions[self.target_id][-1]
+            self.get_logger().info(f"{fore.LIGHT_BLUE}Camera_Point :{camera_point}{style.RESET}\n")
 
-            self.get_logger().info(
-                f"{fore.LIGHT_BLUE}Adjusting angular velocity to align: {angular_velocity:.2f} rad/s (y_offset: {y_offset:.2f}){style.RESET}\n"
-            )
+            # Keep the target centered within a range of values ​​and
+            y_offset = camera_point.y  # y of camera → lateral alignment
+
+            if abs(y_offset) > self.alignment_threshold:
+                # Calculate angular velocity
+                angular_velocity = 2.5 if y_offset > 0 else -2.5  
+                
+                # Create and publish the Twist message
+                twist_msg = Twist()
+                twist_msg.angular.z = angular_velocity
+                twist_msg.linear.x = 0.0  # Do not modify the linear speed
+
+                self.cmd_vel_publisher.publish(twist_msg)
+                self.aligned = False
+
+                self.get_logger().info(
+                    f"{fore.LIGHT_BLUE}Adjusting angular velocity to align: {angular_velocity:.2f} rad/s (y_offset: {y_offset:.2f}){style.RESET}\n"
+                )
+            else:
+                # If the target is already aligned, stop the rotation
+                twist_msg = Twist()
+                twist_msg.angular.z = 0.0
+                twist_msg.linear.x = 0.0
+                self.cmd_vel_publisher.publish(twist_msg)
+                self.aligned = True
+                self.get_logger().info(f"{fore.BLUE}Robot aligned. Stopping angular velocity.{style.RESET}\n")
+
         else:
-            # If the target is already aligned, stop the rotation
-            twist_msg = Twist()
-            twist_msg.angular.z = 0.0
-            twist_msg.linear.x = 0.0
-            self.cmd_vel_publisher.publish(twist_msg)
-            self.get_logger().info(f"{fore.BLUE}Robot aligned. Stopping angular velocity.{style.RESET}\n")
+            # No valid camera target for alignment
+            self.get_logger().warning("No valid camera target for alignment. Waiting for new data.")
 
 
 
@@ -265,13 +338,60 @@ class PositionFollower(Node):
             pose.pose.position.z = 0.0
             pose.pose.orientation.w = 1.0
 
-            # self.get_logger().info("Was able to transform map to base")
             return pose
 
         except Exception as e:
             self.get_logger().error(f"Error in transform_to_map_frame: {e}")
             return None
         
+
+
+    def handle_no_match(self):
+        """Handles the case when no valid match is found between sensors."""
+        current_time = self.get_clock().now()
+
+        if self.no_match_start_time is None:
+            self.no_match_start_time = current_time
+            self.get_logger().warning("No valid match between sensor points. Starting timer.")
+            return
+
+        elapsed_time = (current_time - self.no_match_start_time).nanoseconds / 1e9
+
+        if elapsed_time > self.rotation_threshold:
+            self.get_logger().info("No valid data for an extended period. Initiating rotation search.")
+            self.rotate_to_search()
+        else:
+            self.get_logger().warning(
+                f"No valid match between sensor points for {elapsed_time:.2f} seconds."
+            )
+
+
+
+    def rotate_to_search(self):
+        """Rotates the robot to search for valid camera data."""
+
+        left_clear, right_clear, front_clear, rear_clear = self.check_collision_safety()
+
+        # Create and publish a Twist message to rotate the robot
+        twist_msg = Twist()
+        twist_msg.angular.z = -2.5  # Set a constant angular velocity
+        twist_msg.linear.x = 0.0 # Ensure no forward movement
+
+        self.cmd_vel_publisher.publish(twist_msg)
+        self.get_logger().info(f"{fore.LIGHT_BLUE}Rotating to search for valid data.{style.RESET}\n")
+    
+
+
+    def stop_rotation(self):
+        """Stops the rotation when valid data is found."""
+        if self.rotation_active:
+            twist_msg = Twist()
+            twist_msg.angular.z = 0.0
+            twist_msg.linear.x = 0.0
+            self.cmd_vel_publisher.publish(twist_msg)
+            self.rotation_active = False
+            self.get_logger().info(f"{fore.LIGHT_GREEN}Stopping rotation. Valid data found.{style.RESET}\n")
+
 
 
     def calculate_distance(self, position1, position2):
@@ -281,11 +401,53 @@ class PositionFollower(Node):
     
 
 
-    def publish_status(self, status: bool):
+    def publish_status(self, status):
         """Publish the robot's status to the /follower_status topic."""
         status_msg = Bool()
         status_msg.data = status
         self.status_publisher_.publish(status_msg)
+
+
+    
+    def cancel_all_goals(self):
+        """Cancels all active goals in the ActionClient."""
+        if not self.nav_action_client._goal_handles:
+            self.get_logger().info("No active navigation goals to cancel.")
+            return
+
+        for goal_uuid, goal_ref in list(self.nav_action_client._goal_handles.items()):
+            goal_handle = goal_ref()
+            if goal_handle is not None:
+                future = self.nav_action_client._cancel_goal_async(goal_handle)
+
+                # Handle cancellation result
+                def cancel_callback(fut):
+                    try:
+                        cancel_result = fut.result()
+                        if cancel_result.goals_canceling:
+                            self.get_logger().info(f"Goal {goal_uuid} successfully cancelled.")
+                        else:
+                            self.get_logger().warning(f"Failed to cancel goal {goal_uuid}.")
+                    except Exception as e:
+                        self.get_logger().error(f"Error while cancelling goal {goal_uuid}: {e}")
+
+                future.add_done_callback(cancel_callback)
+    
+
+
+    def clean_tracking_variables(self):
+        """Cleans all variables related to tracking when the tag is off for too long."""
+        self.camera_positions.clear()
+        self.lidar_points = []
+        self.collision_points = []
+        self.goal_history.clear()
+        self.last_goal_position = None
+        self.target_id = 0 
+        self.aligned = False
+        self.no_match_start_time_lidar_camera = None
+        self.no_match_start_time_uwb_lidar = None
+
+        self.get_logger().info(f"{fore.LIGHT_RED}Tag has been off for too long. Cleared all tracking variables.{style.RESET}")
 
 
 
